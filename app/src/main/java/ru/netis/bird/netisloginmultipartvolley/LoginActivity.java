@@ -1,99 +1,101 @@
 package ru.netis.bird.netisloginmultipartvolley;
 
-import android.app.Activity;
 import android.os.Bundle;
-import android.view.Menu;
-import android.view.MenuItem;
+import android.support.v7.app.AppCompatActivity;
+import android.util.Log;
+import android.view.View;
+import android.widget.Button;
+import android.widget.EditText;
 import android.widget.TextView;
 
-import com.android.volley.NetworkResponse;
+import com.android.volley.AuthFailureError;
 import com.android.volley.Request;
+import com.android.volley.RequestQueue;
 import com.android.volley.Response;
 import com.android.volley.VolleyError;
-import com.android.volley.toolbox.HttpHeaderParser;
-import com.android.volley.toolbox.JsonRequest;
-import com.google.gson.GsonBuilder;
+import com.android.volley.toolbox.StringRequest;
 
-import java.io.UnsupportedEncodingException;
+import java.net.CookieManager;
+import java.util.HashMap;
+import java.util.Map;
 
-public class LoginActivity extends Activity {
+public class LoginActivity extends AppCompatActivity {
 
-    TextView mTextView;
+    private static final String LOG_TAG = "myLog";
+    String url = "http://stat.netis.ru/login.pl";
+    TextView mText;
+    EditText mName;
+    EditText mPassword;
+    CookieManager manager;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_login);
 
-        mTextView = (TextView) findViewById(R.id.textView);
+        mText = (TextView) findViewById(R.id.textView);
+        mName = (EditText) findViewById(R.id.nameEditText);
+        mPassword = (EditText) findViewById(R.id.passwordEditText);
 
-        String url = "http://person.com/personals.phtml?user_id=7795853";
-        Request request = new JsonRequest<Person>(Request.Method.GET, url, null, new Response.Listener<Person>() {
-
+        Button mBatton = (Button) findViewById(R.id.button);
+        mBatton.setOnClickListener(new View.OnClickListener() {
             @Override
-            public void onResponse(Person response) {
-                // Do something with our person object
-            }
-        }, new Response.ErrorListener() {
+            public void onClick(View view) {
+                RequestQueue queue = MyApp.getInstance().getRequestQueue();
+                manager = MyApp.getInstance().getCookieManager();
 
-            @Override
-            public void onErrorResponse(VolleyError error) {
-                // Handle the error
-                // error.networkResponse.statusCode
-                // error.networkResponse.data
-            }
-        }) {
-
-            @Override
-            protected Response<Person> parseNetworkResponse(NetworkResponse response) {
-                String jsonString = null;
-                try {
-                    jsonString = new String(response.data, HttpHeaderParser.parseCharset(response.headers));
-                } catch (UnsupportedEncodingException e) {
-                    e.printStackTrace();
+                MyListener mLictener =new MyListener();
+                final String param1 = mName.getText().toString();
+                final String param2 = mPassword.getText().toString();
+                if (!param1.equals("") && !param2.equals("")) {
+                    StringRequest myReq = new StringRequest(Request.Method.POST,
+                            url, mLictener, createMyReqErrorListener()) {
+                        @Override
+                        protected Map<String, String> getParams() {
+                            Map<String, String> params = new HashMap<>();
+                            params.put("param1", param1);
+                            params.put("param2", param2);
+                            return params;
+                        }
+                        @Override
+                        public Map<String, String> getHeaders() throws AuthFailureError {
+                            HashMap<String, String> headers = new HashMap<>();
+                            headers.put("Cookie", "SID=-");
+                            return headers;
+                        }
+                    };
+                    Log.d(LOG_TAG, "onClick " + myReq.toString());
+                    queue.add(myReq);
                 }
-                Person person = new GsonBuilder().create().fromJson(jsonString, Person.class);
-                Response<Person> result = Response.success(person, HttpHeaderParser.parseCacheHeaders(response));
-                return result;
             }
-        };
-        // Access the RequestQueue through your singleton class.
-        MainActivity.MySingleton.getInstance(this).addToRequestQueue(request);
-
+        });
     }
 
-    @Override
-    public boolean onCreateOptionsMenu(Menu menu) {
-        // Inflate the menu; this adds items to the action bar if it is present.
-        getMenuInflater().inflate(R.menu.menu_login, menu);
-        return true;
-    }
 
-    @Override
-    public boolean onOptionsItemSelected(MenuItem item) {
-        // Handle action bar item clicks here. The action bar will
-        // automatically handle clicks on the Home/Up button, so long
-        // as you specify a parent activity in AndroidManifest.xml.
-        int id = item.getItemId();
-
-        //noinspection SimplifiableIfStatement
-        if (id == R.id.action_settings) {
-            return true;
+    private Response.ErrorListener createMyReqErrorListener() {
+            return new Response.ErrorListener() {
+                @Override
+                public void onErrorResponse(VolleyError error) {
+                    mText.setText(error.getMessage());
+                }
+            };
         }
 
-        return super.onOptionsItemSelected(item);
+
+    private void setTvResultText(String str) {
+            mText.setText(str);
     }
 
-    public class Person {
-        long id;
-        String firstName;
-        String lastName;
-        String address;
+    private class MyListener implements Response.Listener<String> {
+        public MyListener() {
+        }
 
         @Override
-        public String toString() {
-            return id + "-" + firstName + "-" + lastName + "-" + address;
+        public void onResponse(String response) {
+            setTvResultText(response);
+            Log.d(LOG_TAG, "onResponse " + manager.getCookieStore().getCookies().toString());
+            setResult(RESULT_OK);
+            finish();
         }
     }
-
 }
